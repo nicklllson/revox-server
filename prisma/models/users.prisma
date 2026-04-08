@@ -13,6 +13,8 @@ model User {
   birthdate        DateTime?
   purpose          String?
   confirmationCode String?       @map("confirmation_code")
+  verificationCode String?       @map("verification_code")
+  verificationCodeExpiresAt DateTime? @map("verification_code_expires_at")
   emailConfirmed   Boolean?      @default(false)
   profileCompleted Boolean?      @default(false)
   videos           Video[]

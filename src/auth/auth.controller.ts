@@ -14,6 +14,7 @@ import { JwtRefreshGuard } from './guards/jwt-refresh.guard';
 
 import { LoginDto } from './dto/login';
 import { RegisterDto } from './dto/register';
+import { VerifyEmailDto } from './dto/verify-email';
 
 import { CurrentUser } from './decorators/current-user.decorator';
 
@@ -64,6 +65,23 @@ export class AuthController {
   ) {
     res.clearCookie('refresh_token');
     return this.authService.logout();
+  }
+
+  @Post('verify-email')
+  @HttpCode(200)
+  @UseGuards(JwtAuthGuard)
+  async verifyEmail(
+    @Body() dto: VerifyEmailDto,
+    @CurrentUser() user: { sub: string; email: string },
+  ) {
+    return this.authService.verifyEmail(dto, user.email);
+  }
+
+  @Post('resend-code')
+  @HttpCode(200)
+  @UseGuards(JwtAuthGuard)
+  async resendCode(@CurrentUser() user: { sub: string; email: string }) {
+    return this.authService.resendCode(user.email);
   }
 
   // ── Хелпер ────────────────────────────────────────────────────
