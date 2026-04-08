@@ -1,0 +1,12 @@
+model Video {
+  id            String   @id @default(uuid())
+  title         String
+  externalJobId String   @map("external_job_id")
+  thumbnail     String
+  language      String
+  createdAt     DateTime @default(now()) @map("created_at")
+  userId        String   @map("user_id")
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("videos")
+}

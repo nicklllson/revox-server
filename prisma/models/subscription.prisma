@@ -1,0 +1,25 @@
+enum SubscriptionPlan {
+  FREE
+  PRO
+  ENTERPRISE
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELLED
+  EXPIRED
+  PAST_DUE
+}
+
+model Subscription {
+  id        String             @id @default(uuid())
+  plan      SubscriptionPlan   @default(FREE)
+  status    SubscriptionStatus @default(ACTIVE)
+  startedAt DateTime           @default(now()) @map("started_at")
+  expiresAt DateTime?          @map("expires_at")
+  updatedAt DateTime           @updatedAt @map("updated_at")
+  userId    String             @unique @map("user_id")
+  user      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("subscriptions")
+}
