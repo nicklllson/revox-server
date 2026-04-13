@@ -9,7 +9,6 @@ import {
 import { Response } from 'express';
 import { AuthService } from './auth.service';
 
-import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { JwtRefreshGuard } from './guards/jwt-refresh.guard';
 
 import { LoginDto } from './dto/login';
@@ -17,21 +16,20 @@ import { RegisterDto } from './dto/register';
 import { VerifyEmailDto } from './dto/verify-email';
 
 import { CurrentUser } from './decorators/current-user.decorator';
+import { Public } from './decorators/public.decorator';
 
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  @Public()
   @Post('register')
-  async register(
-    @Body() dto: RegisterDto,
-    @Res({ passthrough: true }) res: Response,
-  ) {
-    const tokens = await this.authService.register(dto);
-    this.setRefreshCookie(res, tokens.refreshToken);
-    return { accessToken: tokens.accessToken };
+  async register(@Body() dto: RegisterDto) {
+    await this.authService.register(dto);
+    return { success: true };
   }
 
+  @Public()
   @Post('login')
   @HttpCode(200)
   async login(
@@ -44,6 +42,7 @@ export class AuthController {
     return { accessToken: tokens?.accessToken };
   }
 
+  @Public()
   @Post('refresh')
   @HttpCode(200)
   @UseGuards(JwtRefreshGuard)
@@ -51,14 +50,17 @@ export class AuthController {
     @CurrentUser() user: { sub: string; email: string },
     @Res({ passthrough: true }) res: Response,
   ) {
+    console.log('test');
     const tokens = await this.authService.refresh(user.sub, user.email);
+    console.log(tokens);
     this.setRefreshCookie(res, tokens.refreshToken);
     return { accessToken: tokens.accessToken };
   }
 
+  @Public()
   @Post('logout')
   @HttpCode(200)
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtRefreshGuard)
   async logout(
     @CurrentUser() user: { id: string },
     @Res({ passthrough: true }) res: Response,
@@ -67,21 +69,39 @@ export class AuthController {
     return this.authService.logout();
   }
 
+  @Public()
   @Post('verify-email')
   @HttpCode(200)
-  @UseGuards(JwtAuthGuard)
   async verifyEmail(
     @Body() dto: VerifyEmailDto,
-    @CurrentUser() user: { sub: string; email: string },
+    @Res({ passthrough: true }) res: Response,
   ) {
-    return this.authService.verifyEmail(dto, user.email);
+    const tokens = await this.authService.verifyEmail(dto);
+    this.setRefreshCookie(res, tokens.refreshToken);
+    return { accessToken: tokens.accessToken };
   }
 
+  @Public()
   @Post('resend-code')
   @HttpCode(200)
-  @UseGuards(JwtAuthGuard)
-  async resendCode(@CurrentUser() user: { sub: string; email: string }) {
-    return this.authService.resendCode(user.email);
+  async resendCode(@Body() body: { email: string }) {
+    return this.authService.resendCode(body.email);
+  }
+
+  @Public()
+  @Post('forgot-password')
+  @HttpCode(200)
+  async forgotPassword(@Body() { email }: { email: string }) {
+    return this.authService.forgotPassword(email);
+  }
+
+  @Public()
+  @Post('reset-password')
+  @HttpCode(200)
+  async resetPassword(
+    @Body() { token, password }: { token: string; password: string },
+  ) {
+    return this.authService.resetPassword(token, password);
   }
 
   // ── Хелпер ────────────────────────────────────────────────────
@@ -89,10 +109,9 @@ export class AuthController {
   private setRefreshCookie(res: Response, token: string) {
     res.cookie('refresh_token', token, {
       httpOnly: true, // недоступен из JS
-      secure: true, // только HTTPS
-      sameSite: 'strict',
+      secure: false, // только HTTPS
+      sameSite: 'lax', // strict - prod
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 дней
-      path: '/auth/refresh', // cookie отправляется только на этот путь
     });
   }
 }

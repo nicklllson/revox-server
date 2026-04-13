@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unsafe-argument */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import {
   Injectable,
   UnauthorizedException,
@@ -5,7 +7,6 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { randomBytes } from 'crypto';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 
@@ -15,7 +16,10 @@ import { VerifyEmailDto } from './dto/verify-email';
 
 import { UsersService } from '../users/users.service';
 import { MailService } from '../mail/mail.service';
+import { EmailVerificationsService } from '../email-verifications/email-verifications.service';
 import { JwtPayload } from './strategies/jwt.strategy';
+import { randomBytes } from 'crypto';
+import { PrismaService } from 'src/prisma/prisma.service';
 
 @Injectable()
 export class AuthService {
@@ -24,27 +28,36 @@ export class AuthService {
     private jwtService: JwtService,
     private config: ConfigService,
     private mailService: MailService,
+    private emailVerificationsService: EmailVerificationsService,
+    private readonly prisma: PrismaService,
   ) {}
 
   async register(dto: RegisterDto) {
     const exists = await this.usersService.findByEmail(dto.email);
     if (exists) throw new ConflictException('Email already in use');
 
+    const existingVerification =
+      await this.emailVerificationsService.findByEmail(dto.email);
+    if (existingVerification)
+      throw new ConflictException('Email verification already in progress');
+
     const hashedPassword = await bcrypt.hash(dto.password, 10);
     const verificationCode = this.generateVerificationCode();
-    const verificationCodeExpiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 минут
+    const verificationCodeExpiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
-    const user = await this.usersService.createUser({
-      ...dto,
+    await this.emailVerificationsService.create({
+      email: dto.email,
       password: hashedPassword,
-      confirmationCode: randomBytes(32).toString('hex'),
+      nickname: dto.nickname,
       verificationCode,
       verificationCodeExpiresAt,
     });
 
-    await this.mailService.sendVerificationCode(user.email, verificationCode);
+    await this.mailService.sendVerificationCode(dto.email, verificationCode);
 
-    return this.generateTokens(user.id, user.email);
+    console.log('Code from email -', verificationCode);
+
+    return { success: true };
   }
 
   async login(dto: LoginDto) {
@@ -67,53 +80,97 @@ export class AuthService {
     return { success: true };
   }
 
-  async verifyEmail(dto: VerifyEmailDto, email: string) {
-    const user = await this.usersService.findByEmail(email);
-    if (!user) throw new UnauthorizedException('User not found');
+  async verifyEmail(dto: VerifyEmailDto) {
+    const verification = await this.emailVerificationsService.findByEmail(
+      dto.email,
+    );
+    if (!verification) throw new UnauthorizedException('No verification found');
 
-    if (!user.verificationCode || !user.verificationCodeExpiresAt) {
-      throw new BadRequestException('No verification code was sent');
-    }
-
-    if (new Date() > user.verificationCodeExpiresAt) {
+    if (new Date() > verification.verificationCodeExpiresAt) {
+      await this.emailVerificationsService.delete({ id: verification.id });
       throw new BadRequestException('Verification code has expired');
     }
 
-    if (user.verificationCode !== dto.code) {
+    if (verification.verificationCode !== dto.code) {
       throw new BadRequestException('Invalid verification code');
     }
 
-    await this.usersService.updateUser({
-      where: { id: user.id },
-      data: {
-        emailConfirmed: true,
-        verificationCode: null,
-        verificationCodeExpiresAt: null,
-      },
+    const user = await this.usersService.createUser({
+      email: verification.email,
+      password: verification.password,
+      nickname: verification.nickname,
+      origin: 'LOCAL',
+      emailConfirmed: true,
+      profileCompleted: false,
     });
 
-    return { success: true };
+    await this.emailVerificationsService.delete({ id: verification.id });
+
+    return this.generateTokens(user.id, user.email);
   }
 
   async resendCode(email: string) {
-    const user = await this.usersService.findByEmail(email);
-    if (!user) throw new UnauthorizedException('User not found');
-
-    if (user.emailConfirmed) {
-      throw new BadRequestException('Email is already confirmed');
-    }
+    const verification =
+      await this.emailVerificationsService.findByEmail(email);
+    if (!verification) throw new UnauthorizedException('No verification found');
 
     const verificationCode = this.generateVerificationCode();
     const verificationCodeExpiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
-    await this.usersService.updateUser({
-      where: { id: user.id },
-      data: { verificationCode, verificationCodeExpiresAt },
-    });
+    await this.emailVerificationsService.update(
+      { id: verification.id },
+      { verificationCode, verificationCodeExpiresAt },
+    );
 
     await this.mailService.sendVerificationCode(email, verificationCode);
 
     return { success: true };
+  }
+
+  async forgotPassword(email: string) {
+    const user = await this.prisma.user.findUnique({ where: { email } });
+
+    if (!user)
+      return { message: 'If this email exists, you will receive a letter' };
+
+    const token = randomBytes(32).toString('hex');
+    const exp = new Date(Date.now() + 1000 * 60 * 30); // 30 минут
+
+    await this.prisma.user.update({
+      where: { email },
+      data: {
+        resetPasswordToken: token,
+        resetPasswordTokenExp: exp,
+      },
+    });
+
+    await this.mailService.sendResetPassword(email, token);
+
+    return { message: 'If this email exists, you will receive a letter' };
+  }
+
+  async resetPassword(token: string, password: string) {
+    const user = await this.prisma.user.findFirst({
+      where: {
+        resetPasswordToken: token,
+        resetPasswordTokenExp: { gt: new Date() },
+      },
+    });
+
+    if (!user) throw new BadRequestException('Token is invalid or expired');
+
+    const hash = await bcrypt.hash(password, 10);
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        password: hash,
+        resetPasswordToken: null,
+        resetPasswordTokenExp: null,
+      },
+    });
+
+    return { message: 'Password updated successfully' };
   }
 
   // ── Приватные методы ───────────────────────────────────────────

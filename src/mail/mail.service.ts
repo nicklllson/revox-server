@@ -32,4 +32,21 @@ export class MailService {
       throw new Error('Failed to send verification email');
     }
   }
+
+  async sendResetPassword(email: string, token: string) {
+    try {
+      const url = `${process.env.CLIENT_URL}/reset-password?token=${token}`;
+
+      await this.transporter.sendMail({
+        to: email,
+        subject: 'Password reset',
+        html: `<p>Click the link to reset your password (valid 30 minutes):</p>
+               <a href="${url}">${url}</a>`,
+      });
+      this.logger.log(`Verification code sent to ${email}`);
+    } catch (error) {
+      this.logger.error(`Failed to send email to ${email}`, error);
+      throw new Error('Failed to send verification email');
+    }
+  }
 }

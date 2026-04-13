@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { Prisma } from 'generated/prisma/client';
+import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 
 @Controller('users')
 export class UsersController {
@@ -46,10 +47,17 @@ export class UsersController {
     return this.usersService.findById(id);
   }
 
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() data: Prisma.UserUpdateInput) {
+  @Patch()
+  update(
+    @CurrentUser() user: { id: string; email: string },
+    @Body()
+    data: Omit<
+      Prisma.UserUpdateInput,
+      'password' | 'emailConfirmed' | 'profileCompleted' | 'origin'
+    >,
+  ) {
     return this.usersService.updateUser({
-      where: { id },
+      where: { id: user.id },
       data,
     });
   }
