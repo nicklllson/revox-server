@@ -12,50 +12,61 @@ import {
 import { VideosService } from './videos.service';
 import { Prisma } from 'generated/prisma/client';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 
 @Controller('videos')
 @UseGuards(JwtAuthGuard)
 export class VideosController {
   constructor(private readonly videosService: VideosService) {}
 
-  @Post()
-  create(@Body() data: Prisma.VideoCreateInput) {
-    return this.videosService.createVideo(data);
+  @Get(':videoId')
+  findUserVideo(
+    @Param('videoId') videoId: string,
+    @CurrentUser() user: { id: string; email: string },
+  ) {
+    return this.videosService.findVideoByUserId(user.id, videoId);
   }
 
   @Get()
-  findAll(
+  findUserVideos(
+    @CurrentUser() user: { id: string; email: string },
+    @Query('search') search: string,
     @Query('skip') skip?: string,
     @Query('take') take?: string,
-    @Query('search') search?: string,
   ) {
-    return this.videosService.findAll({
+    return this.videosService.findAllByUserId({
       skip: skip ? +skip : undefined,
       take: take ? +take : undefined,
-      where: search
-        ? {
-            OR: [{ title: { contains: search } }],
-          }
-        : undefined,
+      where: {
+        userId: user.id,
+        ...(search ? { OR: [{ title: { contains: search } }] } : {}),
+      },
       orderBy: { createdAt: 'desc' },
     });
   }
 
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.videosService.findById(id);
+  @Post()
+  createUserVideo(
+    @Body() data: Prisma.VideoCreateInput,
+    @CurrentUser() user: { id: string; email: string },
+  ) {
+    return this.videosService.createVideoByUserId(user.id, data);
   }
 
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() data: Prisma.VideoUpdateInput) {
-    return this.videosService.updateVideo({
-      where: { id },
-      data,
-    });
+  @Patch(':videoId')
+  updateUserVideo(
+    @Param('videoId') videoId: string,
+    @Body() data: Prisma.VideoUpdateInput,
+    @CurrentUser() user: { id: string; email: string },
+  ) {
+    return this.videosService.updateVideoByUserId(user.id, videoId, data);
   }
 
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.videosService.deleteVideo({ id });
+  @Delete(':videoId')
+  removeUserVideo(
+    @Param('videoId') videoId: string,
+    @CurrentUser() user: { id: string; email: string },
+  ) {
+    return this.videosService.deleteVideoByUserId(user.id, videoId);
   }
 }
