@@ -3,6 +3,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { Prisma, Video } from 'generated/prisma/client';
 import { PaginateArgs, PaginationService } from 'src/common/pagination';
 import { getYouTubeId } from 'src/common/videos/services';
+import { CreateVideoDto } from './dto/create-video.dto';
 
 @Injectable()
 export class VideosService {
@@ -63,13 +64,13 @@ export class VideosService {
 
   async createVideoByUserId(
     userId: string,
-    data: Prisma.VideoCreateInput,
+    dto: CreateVideoDto,
   ): Promise<Video> {
-    const youtubeVideoId = getYouTubeId(data.videoUrl);
+    const youtubeVideoId = getYouTubeId(dto.videoUrl);
     return this.prisma.video.create({
       data: {
         youtubeVideoId,
-        ...data,
+        ...dto,
         user: {
           connect: { id: userId },
         },

@@ -13,6 +13,7 @@ import { VideosService } from './videos.service';
 import { Prisma } from 'generated/prisma/client';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
+import { CreateVideoDto } from './dto/create-video.dto';
 
 @Controller('videos')
 @UseGuards(JwtAuthGuard)
@@ -47,7 +48,7 @@ export class VideosController {
 
   @Post()
   createUserVideo(
-    @Body() data: Prisma.VideoCreateInput,
+    @Body() data: CreateVideoDto,
     @CurrentUser() user: { id: string; email: string },
   ) {
     return this.videosService.createVideoByUserId(user.id, data);

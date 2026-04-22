@@ -48,7 +48,6 @@ export class AuthService {
     await this.emailVerificationsService.create({
       email: dto.email,
       password: hashedPassword,
-      nickname: dto.nickname,
       verificationCode,
       verificationCodeExpiresAt,
     });

@@ -29,7 +29,7 @@ export class WsJwtAuthGuard implements CanActivate {
 
     try {
       const payload = this.jwtService.verify(token, {
-        secret: this.configService.get<string>('JWT_SECRET'),
+        secret: this.configService.get<string>('JWT_ACCESS_SECRET'),
       });
       client.data = { user: payload };
       return true;

@@ -4,18 +4,19 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TranslationsGateway } from './translations.gateway';
 import { TranslationsController } from './translations.controller';
 import { WsJwtAuthGuard } from 'src/auth/guards/ws-jwt-auth.guard';
+import { PrismaService } from 'src/prisma/prisma.service';
 
 @Module({
   imports: [
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: (config: ConfigService) => ({
-        secret: config.get<string>('JWT_SECRET'),
+        secret: config.get<string>('JWT_ACCESS_SECRET'),
       }),
       inject: [ConfigService],
     }),
   ],
   controllers: [TranslationsController],
-  providers: [TranslationsGateway, WsJwtAuthGuard],
+  providers: [TranslationsGateway, WsJwtAuthGuard, PrismaService],
 })
 export class TranslationsModule {}
