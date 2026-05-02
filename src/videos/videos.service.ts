@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { Prisma, Video } from 'generated/prisma/client';
 import { PaginateArgs, PaginationService } from 'src/common/pagination';
@@ -24,15 +24,25 @@ export class VideosService {
     cursor?: Prisma.VideoWhereUniqueInput;
     where?: Prisma.VideoWhereInput;
     orderBy?: Prisma.VideoOrderByWithRelationInput;
-  }): Promise<Video[]> {
-    const { skip, take, cursor, where, orderBy } = params;
-    return this.prisma.video.findMany({
+    userId?: string;
+  }) {
+    const { skip, take, cursor, where, orderBy, userId } = params;
+
+    const videos = await this.prisma.video.findMany({
       skip,
       take,
       cursor,
       where,
       orderBy,
+      include: {
+        favorites: userId ? { where: { userId } } : false,
+      },
     });
+
+    return videos.map(({ favorites, ...video }) => ({
+      ...video,
+      isFavorite: !!favorites?.length,
+    }));
   }
 
   async createVideo(data: Prisma.VideoCreateInput): Promise<Video> {
@@ -104,9 +114,21 @@ export class VideosService {
   async findVideoByUserId(
     userId: string,
     videoId: string,
-  ): Promise<Video | null> {
-    return this.prisma.video.findFirst({
-      where: { id: videoId, userId },
-    });
+  ): Promise<(Video & { isFavorite: boolean }) | null> {
+    const [video, favorite] = await Promise.all([
+      this.prisma.video.findFirst({
+        where: { id: videoId, userId },
+      }),
+      this.prisma.favorite.findUnique({
+        where: { userId_videoId: { userId, videoId } },
+      }),
+    ]);
+
+    if (!video) throw new NotFoundException('Video not found');
+
+    return {
+      ...video,
+      isFavorite: !!favorite,
+    };
   }
 }

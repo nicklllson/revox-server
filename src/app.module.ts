@@ -8,6 +8,7 @@ import { EmailVerificationsModule } from './email-verifications/email-verificati
 import { APP_GUARD } from '@nestjs/core';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { TranslationsModule } from './translations/translations.module';
+import { FavoritesModule } from './favorites/favorites.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { TranslationsModule } from './translations/translations.module';
     PrismaModule,
     EmailVerificationsModule,
     TranslationsModule,
+    FavoritesModule,
   ],
   controllers: [],
   providers: [

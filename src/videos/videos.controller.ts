@@ -29,13 +29,13 @@ export class VideosController {
   }
 
   @Get()
-  findUserVideos(
+  async findUserVideos(
     @CurrentUser() user: { id: string; email: string },
     @Query('search') search: string,
     @Query('skip') skip?: string,
     @Query('take') take?: string,
   ) {
-    return this.videosService.findAllByUserId({
+    const result = await this.videosService.findAllByUserId({
       skip: skip ? +skip : undefined,
       take: take ? +take : undefined,
       where: {
@@ -43,7 +43,19 @@ export class VideosController {
         ...(search ? { OR: [{ title: { contains: search } }] } : {}),
       },
       orderBy: { createdAt: 'desc' },
+      include: {
+        favorites: { where: { userId: user.id } },
+      },
     });
+
+    return {
+      ...result,
+      data: result.data.map((video: any) => ({
+        ...video,
+        isFavorite: !!video.favorites?.length,
+        favorites: undefined,
+      })),
+    };
   }
 
   @Post()

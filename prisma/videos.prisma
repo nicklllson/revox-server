@@ -1,14 +1,15 @@
 model Video {
-  id             String   @id @default(uuid())
+  id             String     @id @default(uuid())
   title          String?
-  externalJobId  String?  @map("external_job_id")
+  externalJobId  String?    @map("external_job_id")
   thumbnail      String?
   language       String
-  videoUrl       String   @map("video_url")
-  youtubeVideoId String?  @map("youtube_video_id")
-  createdAt      DateTime @default(now()) @map("created_at")
-  userId         String   @map("user_id")
-  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  videoUrl       String     @map("video_url")
+  youtubeVideoId String?    @map("youtube_video_id")
+  createdAt      DateTime   @default(now()) @map("created_at")
+  userId         String     @map("user_id")
+  user           User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  favorites      Favorite[]
 
   @@map("videos")
 }
