@@ -53,7 +53,6 @@ export class VideosController {
       data: result.data.map((video: any) => ({
         ...video,
         isFavorite: !!video.favorites?.length,
-        favorites: undefined,
       })),
     };
   }

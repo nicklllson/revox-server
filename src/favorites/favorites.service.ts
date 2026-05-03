@@ -1,9 +1,18 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { PaginateArgs, PaginationService } from 'src/common/pagination';
+import { Video } from 'generated/prisma/browser';
 
 @Injectable()
 export class FavoritesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private readonly paginationService: PaginationService,
+  ) {}
+
+  findAllByUserId(args: PaginateArgs) {
+    return this.paginationService.paginate<Video>(this.prisma.favorite, args);
+  }
 
   async getUserFavorites(userId: string) {
     return this.prisma.favorite.findMany({
