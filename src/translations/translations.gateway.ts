@@ -115,6 +115,9 @@ export class TranslationsGateway implements OnGatewayDisconnect {
         if (!isBinary) {
           const msg: MessageDto = JSON.parse(raw.toString());
           if (msg.type === 'metadata' && data.videoId) {
+            this.logger.log(
+              `Saving externalJobId: ${msg.session_id} for video: ${data.videoId}`,
+            );
             await this.prisma.video.update({
               where: { id: data.videoId },
               data: { externalJobId: msg.session_id },

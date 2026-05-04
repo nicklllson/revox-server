@@ -103,11 +103,30 @@ export class VideosService {
   }
 
   async deleteVideoByUserId(userId: string, videoId: string): Promise<Video> {
+    const video = await this.prisma.video.findFirst({
+      where: { id: videoId, userId },
+    });
+
+    if (!video) throw new NotFoundException('Video not found');
+
+    console.log('deleting video:', {
+      videoId,
+      externalJobId: video.externalJobId,
+    });
+
+    if (video.externalJobId) {
+      const ttsUrl = process.env.TTS_HTTP_URL ?? 'http://localhost:8000';
+      const res = await fetch(`${ttsUrl}/api/jobs/${video.externalJobId}`, {
+        method: 'DELETE',
+      }).catch((err) => {
+        console.warn(`Failed to delete TTS job: ${err.message}`);
+        return null;
+      });
+      console.log('TTS delete response:', res?.status);
+    }
+
     return this.prisma.video.delete({
-      where: {
-        id: videoId,
-        userId,
-      },
+      where: { id: videoId, userId },
     });
   }
 
