@@ -10,6 +10,7 @@ model Video {
   userId         String     @map("user_id")
   user           User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   favorites      Favorite[]
+  playlistItems  PlaylistItem[]
 
   @@map("videos")
 }

@@ -9,6 +9,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { TranslationsModule } from './translations/translations.module';
 import { FavoritesModule } from './favorites/favorites.module';
+import { PlaylistsModule } from './playlists/playlists.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { FavoritesModule } from './favorites/favorites.module';
     EmailVerificationsModule,
     TranslationsModule,
     FavoritesModule,
+    PlaylistsModule,
   ],
   controllers: [],
   providers: [
