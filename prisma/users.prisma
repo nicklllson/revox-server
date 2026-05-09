@@ -19,6 +19,8 @@ model User {
   createdAt             DateTime?
   resetPasswordToken    String?
   resetPasswordTokenExp DateTime?
+  favorites             Favorite[]
+  playlists             Playlist[]
 
   @@map("users")
 }

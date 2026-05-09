@@ -1,0 +1,11 @@
+model Favorite {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now()) @map("created_at")
+  userId    String   @map("user_id")
+  videoId   String   @map("video_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  video     Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, videoId])
+  @@map("favorites")
+}

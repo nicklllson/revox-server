@@ -1,0 +1,26 @@
+model Playlist {
+  id          String         @id @default(uuid())
+  name        String
+  description String?
+  thumbnail   String?
+  createdAt   DateTime       @default(now()) @map("created_at")
+  updatedAt   DateTime       @updatedAt @map("updated_at")
+  userId      String         @map("user_id")
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items       PlaylistItem[]
+
+  @@map("playlists")
+}
+
+model PlaylistItem {
+  id         String   @id @default(uuid())
+  position   Int      @default(0)
+  createdAt  DateTime @default(now()) @map("created_at")
+  playlistId String   @map("playlist_id")
+  videoId    String   @map("video_id")
+  playlist   Playlist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  video      Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@unique([playlistId, videoId])
+  @@map("playlist_items")
+}
