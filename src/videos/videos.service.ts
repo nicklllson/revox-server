@@ -77,10 +77,21 @@ export class VideosService {
     dto: CreateVideoDto,
   ): Promise<Video> {
     const youtubeVideoId = getYouTubeId(dto.videoUrl);
+
+    const voice = dto.voice ?? {
+      gender: 'female',
+      voice_name: 'anna',
+      style: 'neutral',
+    };
+
     return this.prisma.video.create({
       data: {
         youtubeVideoId,
-        ...dto,
+        videoUrl: dto.videoUrl,
+        language: dto.language,
+        voiceGender: voice.gender,
+        voiceName: voice.voice_name,
+        voiceStyle: voice.style,
         user: {
           connect: { id: userId },
         },
