@@ -1,9 +1,14 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { Prisma, Video } from 'generated/prisma/client';
 import { PaginateArgs, PaginationService } from 'src/common/pagination';
 import { getYouTubeId } from 'src/common/videos/services';
 import { CreateVideoDto } from './dto/create-video.dto';
+import { FREE_MAX_DURATION_SECONDS } from 'src/config/translations';
 
 @Injectable()
 export class VideosService {
@@ -76,8 +81,19 @@ export class VideosService {
     userId: string,
     dto: CreateVideoDto,
   ): Promise<Video> {
-    const youtubeVideoId = getYouTubeId(dto.videoUrl);
+    const info = await this.getVideoInfo(dto.videoUrl);
 
+    if (info.duration > FREE_MAX_DURATION_SECONDS) {
+      const minutes = Math.floor(info.duration / 60);
+      throw new BadRequestException({
+        message: `Video is too long (${minutes} min). Free plan supports videos up to 30 minutes.`,
+        code: 'video_too_long',
+        duration: info.duration,
+        maxDuration: FREE_MAX_DURATION_SECONDS,
+      });
+    }
+
+    const youtubeVideoId = getYouTubeId(dto.videoUrl);
     const voice = dto.voice ?? {
       gender: 'female',
       voice_name: 'anna',
@@ -89,12 +105,12 @@ export class VideosService {
         youtubeVideoId,
         videoUrl: dto.videoUrl,
         language: dto.language,
+        title: info.title,
+        duration: info.duration,
         voiceGender: voice.gender,
         voiceName: voice.voice_name,
         voiceStyle: voice.style,
-        user: {
-          connect: { id: userId },
-        },
+        user: { connect: { id: userId } },
       },
     });
   }
@@ -160,5 +176,39 @@ export class VideosService {
       ...video,
       isFavorite: !!favorite,
     };
+  }
+
+  // --- Private methods ---
+
+  private async getVideoInfo(url: string): Promise<{
+    title: string;
+    duration: number;
+  }> {
+    try {
+      const response = await fetch(
+        `${process.env.TTS_HTTP_URL}/video-info?url=${encodeURIComponent(url)}`,
+      );
+
+      if (!response.ok) {
+        throw new Error(`TTS responded ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (!data.duration || !Number.isFinite(data.duration)) {
+        throw new Error('Invalid duration');
+      }
+
+      return {
+        title: data.title ?? 'Untitled',
+        duration: data.duration,
+      };
+    } catch (err) {
+      console.error('getVideoInfo failed:', err);
+      throw new BadRequestException({
+        message: 'Could not fetch video info. Check the URL.',
+        code: 'invalid_video',
+      });
+    }
   }
 }

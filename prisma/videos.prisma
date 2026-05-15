@@ -6,6 +6,7 @@ model Video {
   language       String
   voiceGender    String         @default("female")
   voiceName      String         @default("anna")
+  duration       Int
   voiceStyle     String         @default("neutral")
   videoUrl       String         @map("video_url")
   youtubeVideoId String?        @map("youtube_video_id")
