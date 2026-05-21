@@ -5,6 +5,8 @@ import {
   Res,
   HttpCode,
   UseGuards,
+  Get,
+  Req,
 } from '@nestjs/common';
 import { Response } from 'express';
 import { AuthService } from './auth.service';
@@ -17,6 +19,7 @@ import { VerifyEmailDto } from './dto/verify-email';
 
 import { CurrentUser } from './decorators/current-user.decorator';
 import { Public } from './decorators/public.decorator';
+import { GoogleAuthGuard } from './guards/google-auth.guard';
 
 @Controller('auth')
 export class AuthController {
@@ -100,6 +103,27 @@ export class AuthController {
     @Body() { token, password }: { token: string; password: string },
   ) {
     return this.authService.resetPassword(token, password);
+  }
+
+  @Public()
+  @Get('google')
+  @UseGuards(GoogleAuthGuard)
+  googleLogin() {}
+
+  @Public()
+  @Get('google/callback')
+  @UseGuards(GoogleAuthGuard)
+  async googleCallback(
+    @Req() req: Request & { user: { id: string; email: string } },
+    @Res() res: Response,
+  ) {
+    const user = req.user as { id: string; email: string };
+    const tokens = this.authService.generateTokens(user.id, user.email);
+
+    this.setRefreshCookie(res, tokens.refreshToken);
+
+    const clientUrl = process.env.CLIENT_URL ?? 'http://localhost:5173';
+    res.redirect(`${clientUrl}/auth/callback?token=${tokens.accessToken}`);
   }
 
   // ── Хелпер ────────────────────────────────────────────────────

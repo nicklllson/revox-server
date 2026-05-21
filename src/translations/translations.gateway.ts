@@ -83,6 +83,11 @@ export class TranslationsGateway implements OnGatewayDisconnect {
       youtube_url: string;
       target_lang: string;
       source_lang?: string;
+      voice?: {
+        gender: 'female' | 'male';
+        voice_name?: string;
+        style: 'neutral' | 'narrator';
+      };
     },
   ) {
     this.logger.log(`handleStart called, data: ${JSON.stringify(data)}`);
@@ -104,6 +109,7 @@ export class TranslationsGateway implements OnGatewayDisconnect {
           youtube_url: data.youtube_url,
           target_lang: data.target_lang,
           source_lang: data.source_lang,
+          voice: data.voice,
         }),
       );
     });

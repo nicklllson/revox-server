@@ -172,9 +172,7 @@ export class AuthService {
     return { message: 'Password updated successfully' };
   }
 
-  // ── Приватные методы ───────────────────────────────────────────
-
-  private generateTokens(userId: string, email: string) {
+  generateTokens(userId: string, email: string) {
     const payload: JwtPayload = { sub: userId, email };
 
     const accessToken = this.jwtService.sign(payload, {
@@ -189,6 +187,8 @@ export class AuthService {
 
     return { accessToken, refreshToken };
   }
+
+  // ── Приватные методы ───────────────────────────────────────────
 
   private generateVerificationCode(): string {
     return Math.floor(1000 + Math.random() * 9000).toString();

@@ -19,7 +19,9 @@ async function bootstrap() {
     origin: ['http://localhost:5173', 'http://localhost:4173'],
     credentials: true,
   });
-  app.setGlobalPrefix('api');
+  app.setGlobalPrefix('api', {
+    exclude: ['/auth/google', '/auth/google/callback'],
+  });
   await app.listen(process.env.PORT ?? 4200);
 }
 bootstrap();
