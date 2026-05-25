@@ -10,11 +10,14 @@ import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { TranslationsModule } from './translations/translations.module';
 import { FavoritesModule } from './favorites/favorites.module';
 import { PlaylistsModule } from './playlists/playlists.module';
+import { SubscriptionsModule } from './subscriptions/subscriptions.module';
+import { PaymentsModule } from './payments/payments.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+      envFilePath: ['.env', '.env.billing'],
     }),
     UsersModule,
     AuthModule,
@@ -24,6 +27,8 @@ import { PlaylistsModule } from './playlists/playlists.module';
     TranslationsModule,
     FavoritesModule,
     PlaylistsModule,
+    SubscriptionsModule,
+    PaymentsModule,
   ],
   controllers: [],
   providers: [

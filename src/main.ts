@@ -20,7 +20,11 @@ async function bootstrap() {
     credentials: true,
   });
   app.setGlobalPrefix('api', {
-    exclude: ['/auth/google', '/auth/google/callback'],
+    exclude: [
+      '/auth/google',
+      '/auth/google/callback',
+      '/payments/webhook/yookassa',
+    ],
   });
   await app.listen(process.env.PORT ?? 4200);
 }

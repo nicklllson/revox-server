@@ -1,25 +1,35 @@
-enum SubscriptionPlan {
+enum SubscriptionTier {
   FREE
   PRO
-  ENTERPRISE
+  PREMIUM
 }
 
 enum SubscriptionStatus {
   ACTIVE
   CANCELLED
   EXPIRED
-  PAST_DUE
+  PENDING
 }
 
 model Subscription {
-  id        String             @id @default(uuid())
-  plan      SubscriptionPlan   @default(FREE)
-  status    SubscriptionStatus @default(ACTIVE)
-  startedAt DateTime           @default(now()) @map("started_at")
-  expiresAt DateTime?          @map("expires_at")
-  updatedAt DateTime           @updatedAt @map("updated_at")
-  userId    String             @unique @map("user_id")
-  user      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(uuid())
+  userId String @unique @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  tier   SubscriptionTier   @default(FREE)
+  status SubscriptionStatus @default(ACTIVE)
+
+  creditsUsed Float @default(0) @map("credits_used")
+
+  periodStart DateTime? @map("period_start")
+  periodEnd   DateTime? @map("period_end")
+
+  autoRenew Boolean @default(false) @map("auto_renew")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@index([userId, status])
   @@map("subscriptions")
 }

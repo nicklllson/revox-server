@@ -1,0 +1,39 @@
+enum PaymentStatus {
+  PENDING
+  WAITING_FOR_CAPTURE
+  SUCCEEDED
+  CANCELED
+}
+
+enum PaymentProviderType {
+  YOOKASSA
+  STRIPE
+  MOCK
+}
+
+model Payment {
+  id     String @id @default(uuid())
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  externalId String? @unique @map("external_id")
+
+  provider PaymentProviderType @default(YOOKASSA)
+  status   PaymentStatus       @default(PENDING)
+
+  tier SubscriptionTier
+
+  amount   Int
+  currency String @default("RUB") @db.VarChar(3)
+
+  confirmationUrl String? @map("confirmation_url") @db.Text
+
+  metadata Json?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@index([externalId])
+  @@map("payments")
+}

@@ -5,6 +5,7 @@ import { TranslationsGateway } from './translations.gateway';
 import { TranslationsController } from './translations.controller';
 import { WsJwtAuthGuard } from 'src/auth/guards/ws-jwt-auth.guard';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { SubscriptionsModule } from 'src/subscriptions/subscriptions.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
       }),
       inject: [ConfigService],
     }),
+    SubscriptionsModule,
   ],
   controllers: [TranslationsController],
   providers: [TranslationsGateway, WsJwtAuthGuard, PrismaService],

@@ -61,9 +61,13 @@ export class AuthService {
 
   async login(dto: LoginDto) {
     const user = await this.usersService.findByEmail(dto.email);
-    if (!user) throw new UnauthorizedException('Invalid credentials');
+    if (!user) throw new UnauthorizedException('User not found');
 
-    if (!user.password) return;
+    if (!user.password) {
+      throw new UnauthorizedException(
+        'This account was created with Google. Please sign in with Google.',
+      );
+    }
 
     const passwordMatch = await bcrypt.compare(dto.password, user.password);
     if (!passwordMatch) throw new UnauthorizedException('Invalid credentials');

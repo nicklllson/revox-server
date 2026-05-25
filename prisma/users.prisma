@@ -21,6 +21,7 @@ model User {
   resetPasswordTokenExp DateTime?
   favorites             Favorite[]
   playlists             Playlist[]
+  payment               Payment[]
 
   @@map("users")
 }
