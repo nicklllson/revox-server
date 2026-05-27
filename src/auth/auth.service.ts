@@ -107,7 +107,10 @@ export class AuthService {
       profileCompleted: false,
     });
 
-    await this.emailVerificationsService.delete({ id: verification.id });
+    await Promise.all([
+      this.emailVerificationsService.delete({ id: verification.id }),
+      this.mailService.sendHello(verification.email),
+    ]);
 
     return this.generateTokens(user.id, user.email);
   }

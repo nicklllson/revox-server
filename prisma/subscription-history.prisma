@@ -1,0 +1,30 @@
+enum SubscriptionEventType {
+  CREATED // первая подписка (обычно FREE при регистрации)
+  UPGRADED // переход на более высокий тариф
+  DOWNGRADED // переход на более низкий тариф (например после отмены)
+  RENEWED // продление того же тарифа
+  CANCELED // юзер нажал отмену
+  REACTIVATED // юзер передумал отменять до конца периода
+  EXPIRED // период истёк, тариф откачен
+}
+
+model SubscriptionHistory {
+  id     String @id @default(uuid())
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  eventType SubscriptionEventType
+
+  tier SubscriptionTier
+
+  paymentId String?  @map("payment_id")
+  payment   Payment? @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+
+  metadata Json?
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([userId, createdAt])
+  @@map("subscription_history")
+}

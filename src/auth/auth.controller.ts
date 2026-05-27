@@ -20,10 +20,14 @@ import { VerifyEmailDto } from './dto/verify-email';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { Public } from './decorators/public.decorator';
 import { GoogleAuthGuard } from './guards/google-auth.guard';
+import { MailService } from 'src/mail/mail.service';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private mailService: MailService,
+  ) {}
 
   @Public()
   @Post('register')
@@ -121,6 +125,8 @@ export class AuthController {
     const tokens = this.authService.generateTokens(user.id, user.email);
 
     this.setRefreshCookie(res, tokens.refreshToken);
+
+    await this.mailService.sendHelloGoogle(user.email);
 
     const clientUrl = process.env.CLIENT_URL ?? 'http://localhost:5173';
     res.redirect(`${clientUrl}/auth/callback?token=${tokens.accessToken}`);

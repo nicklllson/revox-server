@@ -1,15 +1,25 @@
-import { Injectable, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  ForbiddenException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   Subscription,
+  SubscriptionEventType,
+  SubscriptionHistory,
   SubscriptionStatus,
   SubscriptionTier,
 } from 'generated/prisma/client';
 import { getTierConfig, TierConfig } from 'src/config/tiers';
+import { PaginateArgs, PaginationService } from 'src/common/pagination';
 
 @Injectable()
 export class SubscriptionsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private paginationService: PaginationService,
+  ) {}
 
   async getOrCreateCurrent(userId: string): Promise<Subscription> {
     let sub = await this.prisma.subscription.findFirst({
@@ -24,12 +34,12 @@ export class SubscriptionsService {
     return this.rolloverIfNeeded(sub);
   }
 
-  private createFreeSubscription(userId: string): Promise<Subscription> {
+  private async createFreeSubscription(userId: string): Promise<Subscription> {
     const now = new Date();
     const periodEnd = new Date(now);
     periodEnd.setMonth(periodEnd.getMonth() + 1);
 
-    return this.prisma.subscription.create({
+    const sub = await this.prisma.subscription.create({
       data: {
         userId,
         tier: SubscriptionTier.FREE,
@@ -39,6 +49,14 @@ export class SubscriptionsService {
         periodEnd,
       },
     });
+
+    await this.recordHistory({
+      userId,
+      eventType: SubscriptionEventType.CREATED,
+      tier: SubscriptionTier.FREE,
+    });
+
+    return sub;
   }
 
   private async rolloverIfNeeded(sub: Subscription): Promise<Subscription> {
@@ -50,7 +68,10 @@ export class SubscriptionsService {
     const periodEnd = new Date(now);
     periodEnd.setMonth(periodEnd.getMonth() + 1);
 
-    return this.prisma.subscription.update({
+    const wasFree = sub.tier === SubscriptionTier.FREE;
+    const isExpiring = !wasFree;
+
+    const updated = await this.prisma.subscription.update({
       where: { id: sub.id },
       data: {
         tier:
@@ -64,19 +85,38 @@ export class SubscriptionsService {
         creditsUsed: 0,
         periodStart: now,
         periodEnd,
+        cancelAtPeriodEnd: false,
+        canceledAt: null,
       },
     });
+
+    if (isExpiring) {
+      await this.recordHistory({
+        userId: sub.userId,
+        eventType: SubscriptionEventType.EXPIRED,
+        tier: SubscriptionTier.FREE,
+        metadata: { previousTier: sub.tier },
+      });
+    }
+
+    return updated;
   }
 
   async activateTier(
     userId: string,
     tier: SubscriptionTier,
+    paymentId?: string,
   ): Promise<Subscription> {
     const now = new Date();
     const periodEnd = new Date(now);
     periodEnd.setMonth(periodEnd.getMonth() + 1);
 
-    return this.prisma.subscription.upsert({
+    const existing = await this.prisma.subscription.findUnique({
+      where: { userId },
+    });
+    const previousTier = existing?.tier ?? SubscriptionTier.FREE;
+
+    const sub = await this.prisma.subscription.upsert({
       where: { userId },
       update: {
         tier,
@@ -84,6 +124,8 @@ export class SubscriptionsService {
         creditsUsed: 0,
         periodStart: now,
         periodEnd,
+        cancelAtPeriodEnd: false,
+        canceledAt: null,
       },
       create: {
         userId,
@@ -94,12 +136,58 @@ export class SubscriptionsService {
         periodEnd,
       },
     });
+
+    const eventType =
+      previousTier === tier
+        ? SubscriptionEventType.RENEWED
+        : SubscriptionEventType.UPGRADED;
+
+    await this.recordHistory({
+      userId,
+      eventType,
+      tier,
+      paymentId,
+      metadata: { previousTier },
+    });
+
+    return sub;
   }
 
-  /**
-   * Списать кредиты без exception — используется при воспроизведении.
-   * Если юзер слегка перебрал — фиксируем, но не прерываем.
-   */
+  async cancelSubscription(userId: string): Promise<Subscription> {
+    const sub = await this.getOrCreateCurrent(userId);
+
+    if (sub.tier === SubscriptionTier.FREE) {
+      throw new BadRequestException('Cannot cancel a free subscription');
+    }
+
+    if (sub.cancelAtPeriodEnd) {
+      throw new BadRequestException('Subscription is already canceled');
+    }
+
+    const now = new Date();
+
+    const updated = await this.prisma.subscription.update({
+      where: { userId },
+      data: {
+        cancelAtPeriodEnd: true,
+        canceledAt: now,
+      },
+    });
+
+    await this.recordHistory({
+      userId,
+      eventType: SubscriptionEventType.CANCELED,
+      tier: sub.tier,
+      metadata: {
+        // Сохраняем когда отменили и до какой даты подписка остаётся активной
+        canceledAt: now.toISOString(),
+        activeUntil: sub.periodEnd?.toISOString(),
+      },
+    });
+
+    return updated;
+  }
+
   async consumeCreditsSilent(userId: string, credits: number): Promise<void> {
     await this.prisma.subscription.update({
       where: { userId },
@@ -107,10 +195,41 @@ export class SubscriptionsService {
     });
   }
 
-  /**
-   * Списать кредиты с проверкой лимита.
-   * Используется при старте перевода.
-   */
+  async reactivateSubscription(userId: string): Promise<Subscription> {
+    const sub = await this.getOrCreateCurrent(userId);
+
+    if (!sub.cancelAtPeriodEnd) {
+      throw new BadRequestException('Subscription is not canceled');
+    }
+
+    if (sub.tier === SubscriptionTier.FREE) {
+      throw new BadRequestException('Cannot reactivate a free subscription');
+    }
+
+    const now = new Date();
+    if (sub.periodEnd && sub.periodEnd <= now) {
+      throw new BadRequestException(
+        'Subscription period has ended. Please purchase a new subscription.',
+      );
+    }
+
+    const updated = await this.prisma.subscription.update({
+      where: { userId },
+      data: {
+        cancelAtPeriodEnd: false,
+        canceledAt: null,
+      },
+    });
+
+    await this.recordHistory({
+      userId,
+      eventType: SubscriptionEventType.REACTIVATED,
+      tier: sub.tier,
+    });
+
+    return updated;
+  }
+
   async consumeCredits(userId: string, credits: number): Promise<void> {
     const sub = await this.getOrCreateCurrent(userId);
     const config = getTierConfig(sub.tier);
@@ -171,9 +290,51 @@ export class SubscriptionsService {
         status: sub.status,
         creditsUsed: sub.creditsUsed,
         periodEnd: sub.periodEnd,
+        cancelAtPeriodEnd: sub.cancelAtPeriodEnd, // ← добавили
+        canceledAt: sub.canceledAt,
       },
       config,
       creditsRemaining: Math.max(0, config.creditsPerMonth - sub.creditsUsed),
     };
+  }
+
+  private async recordHistory(params: {
+    userId: string;
+    eventType: SubscriptionEventType;
+    tier: SubscriptionTier;
+    paymentId?: string;
+    metadata?: Record<string, any>;
+  }): Promise<void> {
+    await this.prisma.subscriptionHistory.create({
+      data: {
+        userId: params.userId,
+        eventType: params.eventType,
+        tier: params.tier,
+        paymentId: params.paymentId,
+        metadata: params.metadata,
+      },
+    });
+  }
+
+  getHistory(userId: string, args: PaginateArgs) {
+    return this.paginationService.paginate<SubscriptionHistory>(
+      this.prisma.subscriptionHistory,
+      {
+        ...args,
+        where: { userId },
+        orderBy: { createdAt: 'desc' },
+        include: {
+          payment: {
+            select: {
+              id: true,
+              amount: true,
+              currency: true,
+              status: true,
+              createdAt: true,
+            },
+          },
+        },
+      },
+    );
   }
 }

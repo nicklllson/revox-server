@@ -33,23 +33,20 @@ export class PaymentsService {
   async createPaymentForTier(
     userId: string,
     tier: SubscriptionTier,
-  ): Promise<{ paymentId: string; confirmationUrl: string }> {
+  ): Promise<{
+    paymentId: string;
+    confirmationUrl: string;
+  }> {
     if (tier === SubscriptionTier.FREE) {
       throw new BadRequestException('Free tier does not require payment');
     }
-
     const tierConfig = getTierConfig(tier);
     const idempotenceKey = randomUUID();
     const frontendUrl = this.config.getOrThrow<string>('CLIENT_URL');
-
-    // Конвертируем USD → RUB по курсу из env (фикс на момент создания платежа).
-    // priceUsd в центах ($9.00 = 900), курс в рублях за 1 USD.
-    // Например 900 * 95 = 85500 копеек = 855 рублей.
     const usdToRubRate = Number(
       this.config.get<string>('USD_TO_RUB_RATE') ?? '95',
     );
     const amountKopecks = Math.round(tierConfig.priceUsd * usdToRubRate);
-
     const payment = await this.prisma.payment.create({
       data: {
         userId,
@@ -65,13 +62,12 @@ export class PaymentsService {
       const result = await this.yooKassa.createPayment({
         amount: amountKopecks,
         currency: 'RUB',
-        description: `Revox ${tierConfig.name} subscription`,
+        description: ` Revox ${tierConfig.name} subscription`,
         userId,
         tier,
         returnUrl: `${frontendUrl}/payment/return?paymentId=${payment.id}`,
         idempotenceKey,
       });
-
       const updated = await this.prisma.payment.update({
         where: { id: payment.id },
         data: {
@@ -80,11 +76,7 @@ export class PaymentsService {
           metadata: result.raw,
         },
       });
-
-      return {
-        paymentId: updated.id,
-        confirmationUrl: result.confirmationUrl,
-      };
+      return { paymentId: updated.id, confirmationUrl: result.confirmationUrl };
     } catch (err) {
       this.logger.error(`Failed to create YooKassa payment: ${err}`);
       await this.prisma.payment.update({
@@ -144,7 +136,11 @@ export class PaymentsService {
     });
 
     if (newStatus === PaymentStatus.SUCCEEDED) {
-      await this.subscriptions.activateTier(payment.userId, payment.tier);
+      await this.subscriptions.activateTier(
+        payment.userId,
+        payment.tier,
+        payment.id,
+      );
       this.logger.log(
         `Activated ${payment.tier} for user ${payment.userId} (payment ${payment.id})`,
       );

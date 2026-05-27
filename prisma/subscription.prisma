@@ -24,6 +24,9 @@ model Subscription {
   periodStart DateTime? @map("period_start")
   periodEnd   DateTime? @map("period_end")
 
+  cancelAtPeriodEnd Boolean   @default(false) @map("cancel_at_period_end")
+  canceledAt        DateTime? @map("canceled_at")
+
   autoRenew Boolean @default(false) @map("auto_renew")
 
   createdAt DateTime @default(now()) @map("created_at")
