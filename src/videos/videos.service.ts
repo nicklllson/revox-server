@@ -107,6 +107,7 @@ export class VideosService {
         language: dto.language,
         title: info.title,
         duration: info.duration,
+        isVertical: info.isVertical,
         voiceGender: voice.gender,
         voiceName: voice.voice_name,
         voiceStyle: voice.style,
@@ -183,6 +184,7 @@ export class VideosService {
   private async getVideoInfo(url: string): Promise<{
     title: string;
     duration: number;
+    isVertical: boolean;
   }> {
     try {
       const response = await fetch(
@@ -202,6 +204,10 @@ export class VideosService {
       return {
         title: data.title ?? 'Untitled',
         duration: data.duration,
+        isVertical:
+          typeof data.is_vertical === 'boolean'
+            ? data.is_vertical
+            : /\/shorts\//.test(url),
       };
     } catch (err) {
       console.error('getVideoInfo failed:', err);

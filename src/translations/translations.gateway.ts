@@ -93,6 +93,7 @@ export class TranslationsGateway implements OnGatewayDisconnect {
       youtube_url: string;
       target_lang: string;
       source_lang?: string;
+      is_vertical: boolean;
       voice?: {
         gender: 'female' | 'male';
         voice_name?: string;
@@ -158,7 +159,12 @@ export class TranslationsGateway implements OnGatewayDisconnect {
           if (msg.type === 'metadata' && data.videoId) {
             await this.prisma.video.update({
               where: { id: data.videoId },
-              data: { externalJobId: msg.session_id },
+              data: {
+                externalJobId: msg.session_id,
+                ...(msg.is_vertical != null && {
+                  isVertical: msg.is_vertical,
+                }),
+              },
             });
           }
 

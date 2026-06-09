@@ -8,6 +8,7 @@ model Video {
   voiceName      String         @default("anna")
   duration       Int
   voiceStyle     String         @default("neutral")
+  isVertical     Boolean        @default(false) @map("is_vertical")
   videoUrl       String         @map("video_url")
   youtubeVideoId String?        @map("youtube_video_id")
   createdAt      DateTime       @default(now()) @map("created_at")
