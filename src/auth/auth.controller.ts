@@ -126,8 +126,6 @@ export class AuthController {
 
     this.setRefreshCookie(res, tokens.refreshToken);
 
-    await this.mailService.sendHelloGoogle(user.email);
-
     const clientUrl = process.env.CLIENT_URL ?? 'http://localhost:5173';
     res.redirect(`${clientUrl}/auth/callback?token=${tokens.accessToken}`);
   }
