@@ -30,4 +30,4 @@
   
   EXPOSE 4200
   
-  CMD ["sh", "-c", "pnpm prisma migrate deploy && node dist/main"]
+  CMD ["sh", "-c", "pnpm prisma migrate deploy && node dist/src/main"]
