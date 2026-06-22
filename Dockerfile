@@ -15,7 +15,7 @@
   WORKDIR /app
   ENV NODE_ENV=production
   
-  RUN corepack enable && corepack prepare pnpm@latest --activate
+  RUN npm install -g pnpm
   
   COPY --from=builder /app/node_modules ./node_modules
   COPY --from=builder /app/dist ./dist
