@@ -9,11 +9,25 @@ export class MailService {
 
   constructor(private config: ConfigService) {
     this.transporter = nodemailer.createTransport({
-      service: 'gmail',
+      service: 'smtp.gmail.com',
+      port: 587,
+      secure: false,
+      requireTLS: true,
       auth: {
         user: this.config.get('GMAIL_USER'),
         pass: this.config.get('GMAIL_APP_PASSWORD'),
       },
+      logger: true,
+      debug: true,
+      pool: true,
+    });
+
+    this.transporter.verify((error) => {
+      if (error) {
+        this.logger.error('Transporter verification failed', error);
+      } else {
+        this.logger.log('✅ Mail transporter ready');
+      }
     });
   }
 
